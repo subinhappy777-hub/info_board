@@ -622,6 +622,119 @@ async function fetchLiveWeather() {
  * UI Renderers
  * ========================================================= */
 
+
+/* =========================================================
+ * Visual Trend Chart (SVG Renderer)
+ * ========================================================= */
+
+function renderTrendChart(containerId, pillId, readings, defaultUnit) {
+  const container = document.getElementById(containerId);
+  const pill = document.getElementById(pillId);
+  if (!container) return;
+
+  if (!readings || readings.length === 0) {
+    container.innerHTML = '<div class="chart-empty">수집된 일별 기록이 없습니다. 상단의 조회 버튼을 눌러주세요.</div>';
+    if (pill) pill.textContent = '데이터 없음';
+    return;
+  }
+
+  const unit = readings[0].unit || defaultUnit || '';
+
+  if (readings.length === 1) {
+    const r0 = readings[0];
+    if (pill) pill.textContent = '1일차 관측 중 (내일 Day 2 비교 대기)';
+    container.innerHTML = `
+      <svg class="chart-svg" viewBox="0 0 600 180" xmlns="http://www.w3.org/2000/svg">
+        <line x1="60" y1="90" x2="540" y2="90" class="chart-grid-line" />
+        <line x1="160" y1="90" x2="440" y2="90" stroke="#94a3b8" stroke-width="2" stroke-dasharray="6 6" />
+
+        <circle cx="160" cy="90" r="8" fill="#2563eb" stroke="#ffffff" stroke-width="3" />
+        <text x="160" y="65" class="chart-label-val">${r0.normalized_value} ${unit} (오늘 관측값)</text>
+        <text x="160" y="125" class="chart-label-date">${r0.record_date} (Day 1)</text>
+
+        <circle cx="440" cy="90" r="8" fill="#f1f5f9" stroke="#94a3b8" stroke-width="2" stroke-dasharray="3 3" />
+        <text x="440" y="65" font-size="12" font-weight="600" fill="#64748b" text-anchor="middle">? (내일 Day 2)</text>
+        <text x="440" y="125" font-size="11" font-weight="500" fill="#94a3b8" text-anchor="middle">내일 조회 시 추세선 자동 연결</text>
+
+        <rect x="230" y="78" width="140" height="24" rx="12" fill="#eff6ff" stroke="#bfdbfe"/>
+        <text x="300" y="94" font-size="11" font-weight="600" fill="#1d4ed8" text-anchor="middle">내일 변화량 비교</text>
+      </svg>
+    `;
+    return;
+  }
+
+  const sorted = [...readings].sort((a, b) => a.record_date.localeCompare(b.record_date));
+  const values = sorted.map(r => r.normalized_value);
+  const minVal = Math.min(...values);
+  const maxVal = Math.max(...values);
+  const valRange = (maxVal - minVal) === 0 ? 10 : (maxVal - minVal);
+
+  const paddingX = 90;
+  const paddingYTop = 50;
+  const paddingYBottom = 130;
+  const chartWidth = 600;
+  const usableWidth = chartWidth - paddingX * 2;
+  const usableHeight = paddingYBottom - paddingYTop;
+
+  const points = sorted.map((r, i) => {
+    const x = paddingX + (i / (sorted.length - 1)) * usableWidth;
+    const y = paddingYBottom - ((r.normalized_value - minVal) / valRange) * usableHeight;
+    return { x, y, val: r.normalized_value, date: r.record_date };
+  });
+
+  const lineD = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
+  const areaD = `${lineD} L ${points[points.length - 1].x.toFixed(1)} 155 L ${points[0].x.toFixed(1)} 155 Z`;
+
+  const lastP = points[points.length - 1];
+  const prevP = points[points.length - 2];
+  const delta = lastP.val - prevP.val;
+  const isUp = delta > 0;
+  const isDown = delta < 0;
+  const deltaSign = isUp ? '+' : isDown ? '-' : '';
+  const arrow = isUp ? '▲' : isDown ? '▼' : '―';
+  const deltaColor = isUp ? '#dc2626' : isDown ? '#2563eb' : '#475569';
+  const deltaBg = isUp ? '#fee2e2' : isDown ? '#dbeafe' : '#f1f5f9';
+
+  if (pill) {
+    pill.textContent = `${sorted.length}일치 연결 완료 (${arrow} ${deltaSign}${Math.abs(delta).toFixed(1)} ${unit})`;
+  }
+
+  const midX = (prevP.x + lastP.x) / 2;
+  const midY = (prevP.y + lastP.y) / 2 - 20;
+
+  const pointsSvg = points.map(p => `
+    <circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="6" class="chart-point" />
+    <text x="${p.x.toFixed(1)}" y="${(p.y - 14).toFixed(1)}" class="chart-label-val">${p.val} ${unit}</text>
+    <text x="${p.x.toFixed(1)}" y="165" class="chart-label-date">${p.date}</text>
+  `).join('');
+
+  container.innerHTML = `
+    <svg class="chart-svg" viewBox="0 0 600 180" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="chartGradientMulti" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#2563eb" stop-opacity="0.25"/>
+          <stop offset="100%" stop-color="#2563eb" stop-opacity="0.02"/>
+        </linearGradient>
+      </defs>
+      <line x1="40" y1="${paddingYTop}" x2="560" y2="${paddingYTop}" class="chart-grid-line" />
+      <line x1="40" y1="${paddingYBottom}" x2="560" y2="${paddingYBottom}" class="chart-grid-line" />
+
+      <path d="${areaD}" fill="url(#chartGradientMulti)" />
+      <path d="${lineD}" class="chart-line" />
+
+      <g transform="translate(${midX.toFixed(1)}, ${midY.toFixed(1)})">
+        <rect x="-50" y="-12" width="100" height="24" rx="12" fill="${deltaBg}" stroke="${deltaColor}" stroke-width="1.5"/>
+        <text x="0" y="4" font-size="11" font-weight="700" fill="${deltaColor}" text-anchor="middle">
+          ${arrow} ${deltaSign}${Math.abs(delta).toFixed(1)} ${unit}
+        </text>
+      </g>
+
+      ${pointsSvg}
+    </svg>
+  `;
+}
+
+
 function renderLiveUI() {
   const cur = liveState.current_reading;
   const status = liveState.status;
@@ -720,6 +833,9 @@ function renderLiveUI() {
 
   // Triplet Inspector (T04-C10)
   renderTripletInspector();
+
+  // Daily Trend Chart
+  renderTrendChart("live-chart-container", "live-chart-status-pill", liveState.daily_readings, "°C");
 }
 
 function renderTripletInspector() {
@@ -845,6 +961,9 @@ function renderReplayUI() {
       </tr>
     `).join('');
   }
+
+  // Replay Trend Chart
+  renderTrendChart("replay-chart-container", "replay-chart-status-pill", replayState.daily_readings, "pt");
 }
 
 /* =========================================================
