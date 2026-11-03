@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>오늘의 진짜 관광정보판 — 데이터가 안 올 때</title>
+  <title>오늘의 진짜 관광정보판 — 지역별 축제 지도 & Fail-Safe 대시보드</title>
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
@@ -13,10 +13,10 @@
     <header class="main-header">
       <div class="header-content">
         <div class="logo-area">
-          <i class="fa-solid fa-compass-drafting header-icon"></i>
+          <i class="fa-solid fa-map-location-dot header-icon"></i>
           <div>
             <h1>오늘의 진짜 관광정보판</h1>
-            <p class="subtitle">한국관광공사 Open API 기반 장애 복원형 축제 대시보드</p>
+            <p class="subtitle">전국 지역별 맞춤 축제 탐색 & API 장애 복원형 관광 대시보드</p>
           </div>
         </div>
         <div class="header-badge">
@@ -25,7 +25,7 @@
       </div>
     </header>
 
-    <!-- 1. 오늘의 데이터 상태 영역 -->
+    <!-- 1. 오늘의 데이터 상태 영역 (지시사항 5-1) -->
     <section class="section status-section">
       <div class="card status-card">
         <div class="status-header">
@@ -54,13 +54,250 @@
             <span class="val text-success" id="recent-result">성공 (200 OK)</span>
           </div>
           <div class="status-box">
-            <span class="label"><i class="fa-solid fa-database"></i> 현재 표시 데이터 건수</span>
+            <span class="label"><i class="fa-solid fa-database"></i> 현재 전국 축제 건수</span>
             <span class="val" id="current-count">0건</span>
           </div>
           <div class="status-box">
-            <span class="label"><i class="fa-solid fa-server"></i> 데이터 소스</span>
-            <span class="val text-muted">한국관광공사 searchFestival2</span>
+            <span class="label"><i class="fa-solid fa-map-pin"></i> 현재 선택된 지역</span>
+            <span class="val highlight" id="selected-region-name">전국 전체</span>
           </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ★ 신규 추가: 원하는 지역의 축제를 고를 수 있는 대한민국 지도 & 지역 선택 영역 -->
+    <section class="section map-selection-section" id="region-map-section">
+      <div class="card map-card">
+        <div class="section-title-wrap">
+          <div class="title-with-icon">
+            <i class="fa-solid fa-compass icon-primary"></i>
+            <div>
+              <h3>대한민국 지역별 축제 지도</h3>
+              <p class="section-desc">지도를 클릭하거나 원하는 지역 버튼을 선택하여 해당 지역만의 축제를 모아보세요.</p>
+            </div>
+          </div>
+          <button class="btn btn-sm btn-outline active" id="btn-region-all" data-region="all">
+            <i class="fa-solid fa-earth-asia"></i> 전국 전체 보기 (<span id="cnt-region-all">0</span>)
+          </button>
+        </div>
+
+        <div class="map-interactive-container">
+          <!-- 인터랙티브 SVG 지도 영역 -->
+          <div class="svg-map-wrapper">
+            <div class="map-title-bar">
+              <span><i class="fa-solid fa-arrow-pointer"></i> 지도를 클릭하면 해당 지역 축제가 표시됩니다</span>
+              <span id="map-hover-info" class="map-hover-tag">지역을 선택하세요</span>
+            </div>
+            
+            <svg id="korea-svg-map" viewBox="0 0 520 620" class="korea-map-svg">
+              <!-- 서울/경기/인천 -->
+              <g class="map-region-group" data-region="seoul" id="map-reg-seoul">
+                <circle cx="165" cy="145" r="24" class="region-node node-seoul" />
+                <text x="165" y="149" class="region-text">서울</text>
+              </g>
+              <g class="map-region-group" data-region="gyeonggi" id="map-reg-gyeonggi">
+                <path d="M130,105 L215,95 L225,185 L140,200 L115,160 Z" class="region-polygon poly-gyeonggi" />
+                <text x="175" y="190" class="region-text">경기/인천</text>
+              </g>
+
+              <!-- 강원도 -->
+              <g class="map-region-group" data-region="gangwon" id="map-reg-gangwon">
+                <path d="M225,85 L350,110 L330,220 L230,185 Z" class="region-polygon poly-gangwon" />
+                <text x="280" y="150" class="region-text">강원도</text>
+              </g>
+
+              <!-- 충청도 (충북 / 충남 / 대전 / 세종) -->
+              <g class="map-region-group" data-region="chungcheong" id="map-reg-chungcheong">
+                <path d="M125,205 L235,190 L275,260 L195,305 L115,280 Z" class="region-polygon poly-chungcheong" />
+                <text x="180" y="250" class="region-text highlight-region">충청도 (충남·충북·대전·세종)</text>
+              </g>
+
+              <!-- 경상북도 & 대구 -->
+              <g class="map-region-group" data-region="gyeongbuk" id="map-reg-gyeongbuk">
+                <path d="M280,215 L385,225 L395,345 L285,340 L270,265 Z" class="region-polygon poly-gyeongbuk" />
+                <text x="330" y="280" class="region-text">경북/대구</text>
+              </g>
+
+              <!-- 전라북도 -->
+              <g class="map-region-group" data-region="jeonbuk" id="map-reg-jeonbuk">
+                <path d="M115,290 L205,310 L220,380 L110,370 Z" class="region-polygon poly-jeonbuk" />
+                <text x="160" y="345" class="region-text highlight-region">전라북도</text>
+              </g>
+
+              <!-- 전라남도 & 광주 -->
+              <g class="map-region-group" data-region="jeonnam" id="map-reg-jeonnam">
+                <path d="M100,380 L225,385 L215,485 L90,470 Z" class="region-polygon poly-jeonnam" />
+                <text x="155" y="435" class="region-text highlight-region">전라남도 (광주)</text>
+              </g>
+
+              <!-- 경상남도 & 부산/울산 -->
+              <g class="map-region-group" data-region="gyeongnam" id="map-reg-gyeongnam">
+                <path d="M225,355 L380,350 L395,445 L270,480 L220,395 Z" class="region-polygon poly-gyeongnam" />
+                <text x="295" y="420" class="region-text">경남/부산/울산</text>
+              </g>
+
+              <!-- 제주특별자치도 -->
+              <g class="map-region-group" data-region="jeju" id="map-reg-jeju">
+                <ellipse cx="140" cy="555" rx="50" ry="26" class="region-polygon poly-jeju" />
+                <text x="140" y="560" class="region-text">제주도</text>
+              </g>
+            </svg>
+          </div>
+
+          <!-- 지역 선택 퀵 버튼 리스트 -->
+          <div class="region-buttons-panel">
+            <h4><i class="fa-solid fa-signs-post"></i> 권역 바로가기</h4>
+            <div class="region-btn-grid">
+              <button class="btn-region" data-region="chungcheong">
+                <div class="region-btn-header">
+                  <span class="reg-name"><i class="fa-solid fa-location-dot reg-icon-chungcheong"></i> 충청도</span>
+                  <span class="reg-count" id="cnt-region-chungcheong">0건</span>
+                </div>
+                <small class="reg-sub">충남 · 충북 · 대전 · 세종</small>
+              </button>
+
+              <button class="btn-region" data-region="jeonbuk">
+                <div class="region-btn-header">
+                  <span class="reg-name"><i class="fa-solid fa-location-dot reg-icon-jeonbuk"></i> 전라북도</span>
+                  <span class="reg-count" id="cnt-region-jeonbuk">0건</span>
+                </div>
+                <small class="reg-sub">전주 · 군산 · 익산 · 남원 등</small>
+              </button>
+
+              <button class="btn-region" data-region="jeonnam">
+                <div class="region-btn-header">
+                  <span class="reg-name"><i class="fa-solid fa-location-dot reg-icon-jeonnam"></i> 전라남도</span>
+                  <span class="reg-count" id="cnt-region-jeonnam">0건</span>
+                </div>
+                <small class="reg-sub">광주 · 여수 · 순천 · 목포 등</small>
+              </button>
+
+              <button class="btn-region" data-region="seoul">
+                <div class="region-btn-header">
+                  <span class="reg-name"><i class="fa-solid fa-location-dot"></i> 서울특별시</span>
+                  <span class="reg-count" id="cnt-region-seoul">0건</span>
+                </div>
+                <small class="reg-sub">수도권 도심 축제</small>
+              </button>
+
+              <button class="btn-region" data-region="gyeonggi">
+                <div class="region-btn-header">
+                  <span class="reg-name"><i class="fa-solid fa-location-dot"></i> 경기 / 인천</span>
+                  <span class="reg-count" id="cnt-region-gyeonggi">0건</span>
+                </div>
+                <small class="reg-sub">경기 남부/북부 & 인천</small>
+              </button>
+
+              <button class="btn-region" data-region="gangwon">
+                <div class="region-btn-header">
+                  <span class="reg-name"><i class="fa-solid fa-location-dot"></i> 강원도</span>
+                  <span class="reg-count" id="cnt-region-gangwon">0건</span>
+                </div>
+                <small class="reg-sub">춘천 · 강릉 · 속초 · 원주 등</small>
+              </button>
+
+              <button class="btn-region" data-region="gyeongbuk">
+                <div class="region-btn-header">
+                  <span class="reg-name"><i class="fa-solid fa-location-dot"></i> 경북 / 대구</span>
+                  <span class="reg-count" id="cnt-region-gyeongbuk">0건</span>
+                </div>
+                <small class="reg-sub">경주 · 안동 · 포항 · 대구 등</small>
+              </button>
+
+              <button class="btn-region" data-region="gyeongnam">
+                <div class="region-btn-header">
+                  <span class="reg-name"><i class="fa-solid fa-location-dot"></i> 경남 / 부산 / 울산</span>
+                  <span class="reg-count" id="cnt-region-gyeongnam">0건</span>
+                </div>
+                <small class="reg-sub">부산 · 김해 · 통영 · 울산 등</small>
+              </button>
+
+              <button class="btn-region" data-region="jeju">
+                <div class="region-btn-header">
+                  <span class="reg-name"><i class="fa-solid fa-location-dot"></i> 제주특별자치도</span>
+                  <span class="reg-count" id="cnt-region-jeju">0건</span>
+                </div>
+                <small class="reg-sub">제주시 & 서귀포시</small>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. 선택된 지역의 축제 정보 및 세부 필터 (지시사항 5-2) -->
+    <section class="section festival-section" id="festival-list-section">
+      <div class="card festival-card">
+        <div class="section-title-wrap">
+          <div class="title-with-icon">
+            <i class="fa-solid fa-sparkles icon-primary"></i>
+            <div>
+              <h3 id="festival-section-title">전국 추천 축제 목록</h3>
+              <p class="section-desc" id="festival-section-desc">원하는 축제 카드를 클릭하면 상세 일정, 남은 D-Day, 위치 정보가 펼쳐집니다.</p>
+            </div>
+          </div>
+
+          <div class="search-sort-bar">
+            <!-- 가고 싶은 축제 일정 필터 -->
+            <div class="period-filter-group">
+              <button class="filter-chip active" data-filter="all">전체</button>
+              <button class="filter-chip" data-filter="ongoing"><i class="fa-solid fa-fire"></i> 진행중</button>
+              <button class="filter-chip" data-filter="imminent"><i class="fa-solid fa-clock"></i> 10일 이내</button>
+              <button class="filter-chip" data-filter="upcoming"><i class="fa-regular fa-calendar-check"></i> 예정</button>
+            </div>
+
+            <!-- 검색창 -->
+            <div class="search-input-wrap">
+              <i class="fa-solid fa-magnifying-glass"></i>
+              <input type="text" id="search-input" placeholder="축제명, 구/군 검색...">
+            </div>
+
+            <!-- 정렬 셀렉트 -->
+            <select id="sort-select" class="custom-select">
+              <option value="dday-asc">D-Day 빠른순 (임박순)</option>
+              <option value="dday-desc">D-Day 늦은순</option>
+              <option value="title-asc">축제명 가나다순</option>
+              <option value="modified-desc">최근 수정일순</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- 축제 카드 그리드 -->
+        <div class="festivals-grid" id="festivals-grid">
+          <!-- 축제 카드 렌더링 -->
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. 어제와 오늘의 데이터 비교 (지시사항 4-② & 5-3) -->
+    <section class="section diff-section">
+      <div class="card diff-card">
+        <div class="section-title-wrap">
+          <div class="title-with-icon">
+            <i class="fa-solid fa-code-compare icon-primary"></i>
+            <div>
+              <h3>어제와 오늘의 데이터 비교</h3>
+              <p class="section-desc">날짜별 수집 기록을 분석하여 등록·수정·종료 및 D-Day 변화를 구분합니다.</p>
+            </div>
+          </div>
+          <div class="diff-summary-tags">
+            <span class="tag tag-new"><i class="fa-solid fa-plus-circle"></i> 신규 <b id="diff-new-cnt">0</b></span>
+            <span class="tag tag-edit"><i class="fa-solid fa-pen-to-square"></i> 정보수정 <b id="diff-edit-cnt">0</b></span>
+            <span class="tag tag-end"><i class="fa-solid fa-circle-minus"></i> 종료/삭제 <b id="diff-del-cnt">0</b></span>
+            <span class="tag tag-dday"><i class="fa-solid fa-calendar-days"></i> D-Day변화 <b id="diff-dday-cnt">0</b></span>
+          </div>
+        </div>
+
+        <div class="diff-tabs">
+          <button class="diff-tab active" data-tab="all">전체 변화</button>
+          <button class="diff-tab" data-tab="new">신규 축제</button>
+          <button class="diff-tab" data-tab="edit">정보 수정</button>
+          <button class="diff-tab" data-tab="end">종료/제외</button>
+          <button class="diff-tab" data-tab="dday">D-Day 변화만</button>
+        </div>
+
+        <div class="diff-list" id="diff-list">
+          <div class="empty-state">비교 데이터를 분석하는 중입니다...</div>
         </div>
       </div>
     </section>
@@ -129,70 +366,6 @@
       </div>
     </section>
 
-    <!-- 3. 어제와 오늘의 데이터 비교 (지시사항 4-② & 5-3) -->
-    <section class="section diff-section">
-      <div class="card diff-card">
-        <div class="section-title-wrap">
-          <div class="title-with-icon">
-            <i class="fa-solid fa-code-compare icon-primary"></i>
-            <div>
-              <h3>어제와 오늘의 데이터 비교</h3>
-              <p class="section-desc">날짜별 수집 기록을 분석하여 등록·수정·종료 및 D-Day 변화를 구분합니다.</p>
-            </div>
-          </div>
-          <div class="diff-summary-tags">
-            <span class="tag tag-new"><i class="fa-solid fa-plus-circle"></i> 신규 <b id="diff-new-cnt">0</b></span>
-            <span class="tag tag-edit"><i class="fa-solid fa-pen-to-square"></i> 정보수정 <b id="diff-edit-cnt">0</b></span>
-            <span class="tag tag-end"><i class="fa-solid fa-circle-minus"></i> 종료/삭제 <b id="diff-del-cnt">0</b></span>
-            <span class="tag tag-dday"><i class="fa-solid fa-calendar-days"></i> D-Day변화 <b id="diff-dday-cnt">0</b></span>
-          </div>
-        </div>
-
-        <div class="diff-tabs">
-          <button class="diff-tab active" data-tab="all">전체 변화</button>
-          <button class="diff-tab" data-tab="new">신규 축제</button>
-          <button class="diff-tab" data-tab="edit">정보 수정</button>
-          <button class="diff-tab" data-tab="end">종료/제외</button>
-          <button class="diff-tab" data-tab="dday">D-Day 변화만</button>
-        </div>
-
-        <div class="diff-list" id="diff-list">
-          <div class="empty-state">비교 데이터를 분석하는 중입니다...</div>
-        </div>
-      </div>
-    </section>
-
-    <!-- 2. 오늘의 축제 정보 영역 (지시사항 4-① & 5-2) -->
-    <section class="section festival-section">
-      <div class="card festival-card">
-        <div class="section-title-wrap">
-          <div class="title-with-icon">
-            <i class="fa-solid fa-map-location-dot icon-primary"></i>
-            <div>
-              <h3>오늘의 축제 정보</h3>
-              <p class="section-desc">현재 활성화된 전국 축제 일정 및 실시간 D-Day 현황입니다.</p>
-            </div>
-          </div>
-          <div class="search-sort-bar">
-            <div class="search-input-wrap">
-              <i class="fa-solid fa-magnifying-glass"></i>
-              <input type="text" id="search-input" placeholder="축제명 또는 지역 검색...">
-            </div>
-            <select id="sort-select" class="custom-select">
-              <option value="dday-asc">D-Day 빠른순</option>
-              <option value="dday-desc">D-Day 늦은순</option>
-              <option value="title-asc">축제명 가나다순</option>
-              <option value="modified-desc">최근 수정일순</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="festivals-grid" id="festivals-grid">
-          <!-- 축제 카드들이 렌더링됩니다 -->
-        </div>
-      </div>
-    </section>
-
     <!-- 4. 최근 수집 이력 (지시사항 4-⑤ & 5-4) -->
     <section class="section history-section">
       <div class="card history-card">
@@ -218,17 +391,75 @@
               </tr>
             </thead>
             <tbody id="history-tbody">
-              <!-- 히스토리 목록이 렌더링됩니다 -->
+              <!-- 히스토리 목록 렌더링 -->
             </tbody>
           </table>
         </div>
       </div>
     </section>
 
+    <!-- 푸터 -->
     <footer class="main-footer">
       <p>한국관광공사 국문 관광정보 서비스_GW | 오픈API 장애 복원형 관광정보 대시보드</p>
       <p class="sub">본 웹 애플리케이션은 API 오류 상황에서도 마지막 정상 수집 데이터를 안전하게 보존합니다.</p>
     </footer>
+  </div>
+
+  <!-- ★ 신규 추가: 축제 상세 정보 팝업 모달 -->
+  <div class="modal-overlay hidden" id="festival-modal">
+    <div class="modal-card">
+      <button class="modal-close-btn" id="modal-close">&times;</button>
+      <div class="modal-image-wrap">
+        <img src="" alt="축제 포스터" id="modal-img" class="modal-img">
+        <div class="modal-dday-badge" id="modal-dday-badge">D-Day</div>
+      </div>
+      <div class="modal-content">
+        <div class="modal-header-meta">
+          <span class="modal-region-tag" id="modal-region-tag">지역</span>
+          <span class="modal-modified" id="modal-modified">최종 수정: -</span>
+        </div>
+        <h2 id="modal-title" class="modal-title">축제명</h2>
+
+        <!-- D-Day 카운트다운 강조 박스 -->
+        <div class="modal-countdown-box" id="modal-countdown-box">
+          <div class="countdown-main">
+            <i class="fa-regular fa-clock countdown-icon"></i>
+            <div>
+              <strong id="modal-countdown-title">개막까지 D-10</strong>
+              <p id="modal-countdown-desc">2026년 11월 15일 개막 예정입니다.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-details-list">
+          <div class="detail-row">
+            <span class="d-label"><i class="fa-regular fa-calendar-days"></i> 축제 기간</span>
+            <span class="d-val highlight" id="modal-period">-</span>
+          </div>
+          <div class="detail-row">
+            <span class="d-label"><i class="fa-solid fa-location-dot"></i> 축제 장소</span>
+            <span class="d-val" id="modal-addr">-</span>
+          </div>
+          <div class="detail-row" id="modal-tel-row">
+            <span class="d-label"><i class="fa-solid fa-phone"></i> 문의처</span>
+            <span class="d-val" id="modal-tel">-</span>
+          </div>
+          <div class="detail-row">
+            <span class="d-label"><i class="fa-solid fa-barcode"></i> 관광정보 ID</span>
+            <span class="d-val text-muted" id="modal-id">-</span>
+          </div>
+        </div>
+
+        <div class="modal-actions">
+          <a href="#" target="_blank" id="modal-map-link" class="btn btn-primary">
+            <i class="fa-solid fa-map"></i> 카카오맵 길찾기 / 위치 확인
+          </a>
+          <button class="btn btn-outline" id="modal-copy-btn">
+            <i class="fa-solid fa-share-nodes"></i> 축제 정보 복사
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script src="script.js"></script>

@@ -1,5 +1,5 @@
 /* =========================================================
-   오늘의 진짜 관광정보판 — 현대적 & 신뢰성 높은 반응형 스타일시트
+   오늘의 진짜 관광정보판 — 현대적 & 인터랙티브 지도/모달 스타일시트
    ========================================================= */
 
 :root {
@@ -267,27 +267,721 @@ body {
   line-height: 1.4;
 }
 
-/* Badges & Tags */
-.badge {
+/* =========================================================
+   ★ 신규 지도 및 권역 선택 컴포넌트
+   ========================================================= */
+.map-interactive-container {
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  gap: 24px;
+  align-items: center;
+}
+
+.svg-map-wrapper {
+  background: #f1f5f9;
+  border-radius: var(--radius-md);
+  padding: 16px;
+  border: 1px solid var(--gray-200);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.map-title-bar {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  color: var(--gray-500);
+  margin-bottom: 8px;
+}
+
+.map-hover-tag {
+  background: #ffffff;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  border: 1px solid var(--gray-200);
+  font-weight: 600;
+  color: var(--primary);
+}
+
+.korea-map-svg {
+  width: 100%;
+  max-width: 320px;
+  height: auto;
+  filter: drop-shadow(0 4px 6px rgba(0,0,0,0.06));
+}
+
+.map-region-group {
+  cursor: pointer;
+  transition: all 0.25s ease;
+}
+
+.region-node, .region-polygon {
+  fill: #cbd5e1;
+  stroke: #ffffff;
+  stroke-width: 3;
+  transition: all 0.25s ease;
+}
+
+/* 권역별 파스텔톤 컬러 */
+.node-seoul { fill: #93c5fd; }
+.poly-gyeonggi { fill: #bfdbfe; }
+.poly-gangwon { fill: #a7f3d0; }
+.poly-chungcheong { fill: #fde68a; }
+.poly-jeonbuk { fill: #fed7aa; }
+.poly-jeonnam { fill: #fbcfe8; }
+.poly-gyeongbuk { fill: #c7d2fe; }
+.poly-gyeongnam { fill: #ddd6fe; }
+.poly-jeju { fill: #99f6e4; }
+
+.region-text {
+  font-size: 12px;
+  font-weight: 700;
+  fill: #1e293b;
+  text-anchor: middle;
+  pointer-events: none;
+  user-select: none;
+}
+
+.region-text.highlight-region {
+  font-size: 11px;
+  fill: #0f172a;
+}
+
+/* 지도 인터랙션 */
+.map-region-group:hover .region-node,
+.map-region-group:hover .region-polygon {
+  fill: var(--primary);
+  stroke: #1d4ed8;
+  filter: brightness(1.05);
+}
+
+.map-region-group:hover .region-text {
+  fill: #ffffff;
+}
+
+.map-region-group.active .region-node,
+.map-region-group.active .region-polygon {
+  fill: #1d4ed8 !important;
+  stroke: #fbbf24 !important;
+  stroke-width: 4 !important;
+}
+
+.map-region-group.active .region-text {
+  fill: #ffffff !important;
+  font-weight: 800;
+}
+
+/* 권역 버튼 패널 */
+.region-buttons-panel h4 {
+  font-size: 14px;
+  color: var(--gray-700);
+  margin-bottom: 12px;
+}
+
+.region-btn-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
+}
+
+.btn-region {
+  background: #ffffff;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.btn-region:hover {
+  border-color: var(--primary);
+  background-color: var(--primary-light);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.1);
+}
+
+.btn-region.active {
+  border-color: var(--primary);
+  background-color: #1e3a8a;
+  color: #ffffff;
+  box-shadow: 0 4px 10px rgba(30, 58, 138, 0.25);
+}
+
+.btn-region.active .reg-name,
+.btn-region.active .reg-count,
+.btn-region.active .reg-sub {
+  color: #ffffff !important;
+}
+
+.region-btn-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.reg-name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--dark);
+}
+
+.reg-count {
+  font-size: 11px;
+  font-weight: 700;
+  background: var(--gray-100);
+  padding: 2px 7px;
+  border-radius: 9999px;
+  color: var(--primary);
+}
+
+.btn-region.active .reg-count {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.reg-sub {
+  font-size: 11px;
+  color: var(--gray-500);
+}
+
+/* 권역 아이콘 컬러 */
+.reg-icon-chungcheong { color: #d97706; }
+.reg-icon-jeonbuk { color: #ea580c; }
+.reg-icon-jeonnam { color: #db2777; }
+
+/* =========================================================
+   2. Festivals Section & Filter Bar
+   ========================================================= */
+.search-sort-bar {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.period-filter-group {
+  display: flex;
+  gap: 6px;
+  background: var(--gray-100);
+  padding: 4px;
+  border-radius: var(--radius-md);
+}
+
+.filter-chip {
+  background: transparent;
+  border: none;
   padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--gray-700);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.filter-chip:hover {
+  background: #ffffff;
+  color: var(--primary);
+}
+
+.filter-chip.active {
+  background: #ffffff;
+  color: var(--primary);
+  font-weight: 700;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.search-input-wrap {
+  position: relative;
+  min-width: 200px;
+  flex-grow: 1;
+}
+
+.search-input-wrap i {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--gray-500);
+  font-size: 14px;
+}
+
+.search-input-wrap input {
+  width: 100%;
+  padding: 8px 12px 8px 36px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--gray-200);
+  font-size: 13px;
+  outline: none;
+}
+
+.search-input-wrap input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.custom-select {
+  padding: 8px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--gray-200);
+  font-size: 13px;
+  background: #ffffff;
+  color: var(--dark);
+  outline: none;
+  cursor: pointer;
+}
+
+/* Festival Cards */
+.festivals-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 20px;
+}
+
+.festival-card-item {
+  background: #ffffff;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  cursor: pointer;
+  position: relative;
+}
+
+.festival-card-item:hover {
+  transform: translateY(-5px);
+  box-shadow: var(--shadow-lg);
+  border-color: var(--primary);
+}
+
+.card-img-wrap {
+  width: 100%;
+  height: 165px;
+  background-color: #cbd5e1;
+  position: relative;
+  overflow: hidden;
+}
+
+.card-img {
+  width: 100%;
+  height: 165px;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.3s ease;
+}
+
+.festival-card-item:hover .card-img {
+  transform: scale(1.04);
+}
+
+.dday-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  padding: 5px 12px;
   border-radius: 9999px;
   font-size: 12px;
+  font-weight: 800;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+}
+
+.dday-future { background: #2563eb; color: #ffffff; }
+.dday-now { background: #10b981; color: #ffffff; animation: pulse 1.8s infinite; }
+.dday-past { background: #64748b; color: #ffffff; }
+
+.region-tag-overlay {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(4px);
+  color: #ffffff;
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+}
+
+.card-body {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+}
+
+.card-body h4 {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--dark);
+  margin-bottom: 8px;
+  line-height: 1.35;
+}
+
+.card-details {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--gray-700);
+  margin-top: auto;
+}
+
+.card-details span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.card-details i {
+  color: var(--gray-500);
+  width: 14px;
+}
+
+.card-click-hint {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--gray-200);
+  font-size: 11px;
+  color: var(--primary);
+  font-weight: 600;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 4px;
+}
+
+/* =========================================================
+   ★ 신규 추가: 축제 상세 팝업 모달
+   ========================================================= */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(6px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  opacity: 1;
+  transition: opacity 0.25s ease;
+}
+
+.modal-overlay.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.modal-card {
+  background: #ffffff;
+  border-radius: var(--radius-lg);
+  width: 100%;
+  max-width: 600px;
+  max-height: 90vh;
+  overflow-y: auto;
+  position: relative;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  animation: modalSlide 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes modalSlide {
+  from { transform: translateY(20px) scale(0.96); }
+  to { transform: translateY(0) scale(1); }
+}
+
+.modal-close-btn {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.5);
+  color: #ffffff;
+  border: none;
+  font-size: 22px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+  transition: background 0.2s ease;
+}
+
+.modal-close-btn:hover {
+  background: rgba(0, 0, 0, 0.8);
+}
+
+.modal-image-wrap {
+  width: 100%;
+  height: 240px;
+  background: #e2e8f0;
+  position: relative;
+}
+
+.modal-img {
+  width: 100%;
+  height: 240px;
+  object-fit: cover;
+  display: block;
+}
+
+.modal-dday-badge {
+  position: absolute;
+  bottom: 14px;
+  right: 16px;
+  padding: 6px 16px;
+  border-radius: 9999px;
+  font-size: 14px;
+  font-weight: 800;
+  box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+}
+
+.modal-content {
+  padding: 24px;
+}
+
+.modal-header-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  font-size: 12px;
+}
+
+.modal-region-tag {
+  background: var(--primary-light);
+  color: var(--primary);
+  padding: 3px 10px;
+  border-radius: 9999px;
   font-weight: 700;
 }
 
-.badge.success {
-  background: var(--success-bg);
-  color: #065f46;
-  border: 1px solid #a7f3d0;
+.modal-modified {
+  color: var(--gray-500);
 }
 
-.badge.danger {
-  background: var(--danger-bg);
-  color: #991b1b;
-  border: 1px solid #fecaca;
+.modal-title {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--dark);
+  margin-bottom: 16px;
+  line-height: 1.3;
 }
 
-/* 5. Error Testing Section */
+.modal-countdown-box {
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+  border: 1px solid #bfdbfe;
+  padding: 16px;
+  border-radius: var(--radius-md);
+  margin-bottom: 20px;
+}
+
+.countdown-main {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.countdown-icon {
+  font-size: 28px;
+  color: var(--primary);
+}
+
+.countdown-main strong {
+  display: block;
+  font-size: 16px;
+  color: #1e3a8a;
+}
+
+.countdown-main p {
+  font-size: 13px;
+  color: #3b82f6;
+  margin-top: 2px;
+}
+
+.modal-details-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  background: var(--gray-100);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+}
+
+.detail-row .d-label {
+  color: var(--gray-500);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.detail-row .d-val {
+  font-weight: 700;
+  color: var(--dark);
+  text-align: right;
+}
+
+.detail-row .d-val.highlight {
+  color: var(--primary);
+}
+
+.modal-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.btn {
+  padding: 10px 18px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  border: 1px solid transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: #ffffff;
+  flex-grow: 1;
+}
+
+.btn-primary:hover {
+  background: var(--primary-hover);
+}
+
+.btn-outline {
+  background: #ffffff;
+  border-color: var(--gray-200);
+  color: var(--dark);
+}
+
+.btn-outline:hover {
+  background: var(--gray-100);
+}
+
+.btn-outline.active {
+  background: var(--primary);
+  color: #ffffff;
+  border-color: var(--primary);
+}
+
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
+/* =========================================================
+   3. Diff & 5. Error Testing & History
+   ========================================================= */
+.diff-summary-tags {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.tag {
+  padding: 5px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.tag-new { background: #dbeafe; color: #1e40af; }
+.tag-edit { background: #fef3c7; color: #92400e; }
+.tag-end { background: #fee2e2; color: #991b1b; }
+.tag-dday { background: #e0e7ff; color: #3730a3; }
+
+.diff-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--gray-200);
+  padding-bottom: 8px;
+  overflow-x: auto;
+}
+
+.diff-tab {
+  background: transparent;
+  border: none;
+  padding: 8px 16px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--gray-500);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.diff-tab.active {
+  background: var(--primary-light);
+  color: var(--primary);
+}
+
+.diff-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.diff-item {
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--gray-200);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  background: #ffffff;
+}
+
+.diff-item.diff-new { border-left: 4px solid #3b82f6; }
+.diff-item.diff-edit { border-left: 4px solid #f59e0b; }
+.diff-item.diff-end { border-left: 4px solid #ef4444; background: #fff5f5; }
+.diff-item.diff-dday { border-left: 4px solid #6366f1; }
+
+.diff-info strong {
+  font-size: 14px;
+  color: var(--dark);
+}
+
+.diff-info .meta {
+  font-size: 12px;
+  color: var(--gray-500);
+  margin-top: 2px;
+}
+
+/* Error Test */
 .error-test-card {
   background: #fdfaf6;
   border-color: #fed7aa;
@@ -383,222 +1077,7 @@ body {
   overflow-y: auto;
 }
 
-/* 3. Diff Section */
-.diff-summary-tags {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.tag {
-  padding: 5px 10px;
-  border-radius: var(--radius-sm);
-  font-size: 12px;
-  font-weight: 600;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.tag-new { background: #dbeafe; color: #1e40af; }
-.tag-edit { background: #fef3c7; color: #92400e; }
-.tag-end { background: #fee2e2; color: #991b1b; }
-.tag-dday { background: #e0e7ff; color: #3730a3; }
-
-.diff-tabs {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 16px;
-  border-bottom: 1px solid var(--gray-200);
-  padding-bottom: 8px;
-  overflow-x: auto;
-}
-
-.diff-tab {
-  background: transparent;
-  border: none;
-  padding: 8px 16px;
-  border-radius: var(--radius-sm);
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--gray-500);
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.diff-tab.active {
-  background: var(--primary-light);
-  color: var(--primary);
-}
-
-.diff-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.diff-item {
-  padding: 12px 16px;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--gray-200);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 10px;
-  background: #ffffff;
-}
-
-.diff-item.diff-new { border-left: 4px solid #3b82f6; }
-.diff-item.diff-edit { border-left: 4px solid #f59e0b; }
-.diff-item.diff-end { border-left: 4px solid #ef4444; background: #fff5f5; }
-.diff-item.diff-dday { border-left: 4px solid #6366f1; }
-
-.diff-info strong {
-  font-size: 14px;
-  color: var(--dark);
-}
-
-.diff-info .meta {
-  font-size: 12px;
-  color: var(--gray-500);
-  margin-top: 2px;
-}
-
-/* 2. Festivals Section */
-.search-sort-bar {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-}
-
-.search-input-wrap {
-  position: relative;
-  min-width: 260px;
-}
-
-.search-input-wrap i {
-  position: absolute;
-  left: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: var(--gray-500);
-  font-size: 14px;
-}
-
-.search-input-wrap input {
-  width: 100%;
-  padding: 8px 12px 8px 36px;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--gray-200);
-  font-size: 13px;
-  outline: none;
-}
-
-.search-input-wrap input:focus {
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
-}
-
-.custom-select {
-  padding: 8px 12px;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--gray-200);
-  font-size: 13px;
-  background: #ffffff;
-  color: var(--dark);
-  outline: none;
-  cursor: pointer;
-}
-
-.festivals-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 20px;
-}
-
-.festival-card-item {
-  background: #ffffff;
-  border: 1px solid var(--gray-200);
-  border-radius: var(--radius-md);
-  overflow: hidden;
-  box-shadow: var(--shadow);
-  display: flex;
-  flex-direction: column;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-
-.festival-card-item:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-lg);
-}
-
-.card-img-wrap {
-  width: 100%;
-  height: 160px;
-  background-color: #cbd5e1;
-  position: relative;
-  overflow: hidden;
-}
-
-.card-img {
-  width: 100%;
-  height: 160px;
-  object-fit: cover;
-  display: block;
-}
-
-.dday-badge {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  padding: 4px 10px;
-  border-radius: 9999px;
-  font-size: 12px;
-  font-weight: 800;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-}
-
-.dday-future { background: #3b82f6; color: #ffffff; }
-.dday-now { background: #10b981; color: #ffffff; animation: pulse 1.8s infinite; }
-.dday-past { background: #64748b; color: #ffffff; }
-
-.card-body {
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  flex-grow: 1;
-}
-
-.card-body h4 {
-  font-size: 15px;
-  font-weight: 700;
-  color: var(--dark);
-  margin-bottom: 8px;
-  line-height: 1.3;
-}
-
-.card-details {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  font-size: 12px;
-  color: var(--gray-700);
-  margin-top: auto;
-}
-
-.card-details span {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.card-details i {
-  color: var(--gray-500);
-  width: 14px;
-}
-
-/* 4. History Table */
+/* History Table */
 .history-table-container {
   overflow-x: auto;
 }
@@ -628,7 +1107,6 @@ body {
   background-color: var(--bg-body);
 }
 
-/* Empty State */
 .empty-state {
   text-align: center;
   padding: 30px;
@@ -649,7 +1127,13 @@ body {
   color: var(--gray-500);
 }
 
-/* Mobile Responsive */
+/* Responsive */
+@media (max-width: 900px) {
+  .map-interactive-container {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 768px) {
   .app-container {
     padding: 14px 12px 40px;
@@ -662,7 +1146,10 @@ body {
   }
   .search-sort-bar {
     flex-direction: column;
-    width: 100%;
+    align-items: stretch;
+  }
+  .period-filter-group {
+    overflow-x: auto;
   }
   .search-input-wrap {
     min-width: 100%;

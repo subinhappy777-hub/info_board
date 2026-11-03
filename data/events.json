@@ -16,5 +16,14 @@
       "date": "2026-11-03",
       "itemCount": 50
     }
+  },
+  {
+    "timestamp": "2026-11-03T14:44:23.055414+09:00",
+    "type": "COLLECT_SUCCESS",
+    "message": "정상 수집 완료: 총 100건의 축제 데이터 저장",
+    "details": {
+      "date": "2026-11-03",
+      "itemCount": 100
+    }
   }
 ]

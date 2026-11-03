@@ -1,23 +1,85 @@
 /**
  * 오늘의 진짜 관광정보판 — script.js
  * 1. 실시간 데이터 로드 & Fail-Safe 캐싱
- * 2. 어제 vs 오늘 데이터 Diff (신규/수정/종료/D-day 구분)
- * 3. D-day 계산 및 검색/정렬 렌더링
- * 4. 5종 오류 모의 테스트 및 데이터 무결성 검증
+ * 2. 대한민국 인터랙티브 지도 & 권역별 축제 필터 (충청도, 전북, 전남 등)
+ * 3. 상세 축제 팝업 모달 & D-Day 카운트다운
+ * 4. 어제 vs 오늘 데이터 Diff (신규/수정/종료/D-day 구분)
+ * 5. 5종 오류 모의 테스트 및 데이터 무결성 검증
  */
 
-// 전역 상태
+// 전역 애플리케이션 상태
 let state = {
-  lastValidData: null,    // 마지막 정상 데이터 (불변 보존 대상)
+  lastValidData: null,    // 마지막 정상 데이터 (Fail-safe 보존 대상)
   history: [],            // 날짜별 수집 이력
   events: [],             // 오류 및 수집 이벤트
-  currentFilter: "all",   // diff 탭 필터
+  selectedRegion: "all",  // 선택된 지역 ('all', 'chungcheong', 'jeonbuk', 'jeonnam', ...)
+  selectedPeriod: "all",  // 기간 필터 ('all', 'ongoing', 'imminent', 'upcoming')
+  currentDiffFilter: "all",// diff 탭 필터
   searchTerm: "",
   sortBy: "dday-asc",
-  isSimulatingError: false
+  regionCounts: {}
 };
 
-// 헬퍼: 데이터 경로 탐색 (상대경로 대응)
+// 권역 정의 및 한글명 매핑
+const REGION_DEFINITIONS = {
+  all: { name: "전국 전체", desc: "전국 모든 축제" },
+  chungcheong: { name: "충청도", desc: "충청남도 · 충청북도 · 대전 · 세종" },
+  jeonbuk: { name: "전라북도", desc: "전북특별자치도 (전주, 군산, 익산 등)" },
+  jeonnam: { name: "전라남도", desc: "전라남도 · 광주광역시 (여수, 순천, 목포 등)" },
+  seoul: { name: "서울특별시", desc: "서울 도심 축제" },
+  gyeonggi: { name: "경기 / 인천", desc: "경기도 및 인천광역시" },
+  gangwon: { name: "강원도", desc: "강원특별자치도 (춘천, 강릉, 속초 등)" },
+  gyeongbuk: { name: "경북 / 대구", desc: "경상북도 및 대구광역시" },
+  gyeongnam: { name: "경남 / 부산 / 울산", desc: "경상남도, 부산광역시, 울산광역시" },
+  jeju: { name: "제주특별자치도", desc: "제주시 및 서귀포시" }
+};
+
+// 주소 텍스트 기반 정밀 권역 분류 함수
+function getRegionCode(addr1) {
+  if (!addr1) return "etc";
+  const addr = addr1.trim();
+
+  // 전라북도
+  if (addr.includes("전북") || addr.includes("전라북도")) {
+    return "jeonbuk";
+  }
+  // 전라남도 & 광주
+  if (addr.includes("전남") || addr.includes("전라남도") || addr.includes("광주") || addr.includes("전남광주")) {
+    return "jeonnam";
+  }
+  // 충청도 (충북, 충남, 대전, 세종)
+  if (addr.includes("충청") || addr.includes("충북") || addr.includes("충남") || addr.includes("대전") || addr.includes("세종")) {
+    return "chungcheong";
+  }
+  // 서울
+  if (addr.includes("서울")) {
+    return "seoul";
+  }
+  // 경기 & 인천
+  if (addr.includes("경기") || addr.includes("인천")) {
+    return "gyeonggi";
+  }
+  // 강원
+  if (addr.includes("강원")) {
+    return "gangwon";
+  }
+  // 경북 & 대구
+  if (addr.includes("경북") || addr.includes("경상북도") || addr.includes("대구")) {
+    return "gyeongbuk";
+  }
+  // 경남 & 부산 & 울산
+  if (addr.includes("경남") || addr.includes("경상남도") || addr.includes("부산") || addr.includes("울산")) {
+    return "gyeongnam";
+  }
+  // 제주
+  if (addr.includes("제주")) {
+    return "jeju";
+  }
+
+  return "etc";
+}
+
+// 헬퍼: 데이터 비동기 로드
 async function fetchJsonWithFallback(filename) {
   const paths = [`./data/${filename}`, `../data/${filename}`, `data/${filename}`];
   for (const path of paths) {
@@ -33,7 +95,7 @@ async function fetchJsonWithFallback(filename) {
   throw new Error(`${filename} 로드 실패`);
 }
 
-// 1. 초기 데이터 로드
+// 1. 초기 실행
 async function initApp() {
   try {
     const [latest, history, events] = await Promise.all([
@@ -46,7 +108,9 @@ async function initApp() {
     state.history = history;
     state.events = events;
 
+    calculateRegionCounts();
     renderStatus("SUCCESS");
+    updateRegionCountUI();
     renderFestivals();
     analyzeAndRenderDiff();
     renderHistory();
@@ -58,9 +122,38 @@ async function initApp() {
   }
 }
 
-// 2. D-day 계산 함수
+// 2. 권역별 축제 개수 집계
+function calculateRegionCounts() {
+  const counts = { all: 0 };
+  Object.keys(REGION_DEFINITIONS).forEach(k => counts[k] = 0);
+
+  if (state.lastValidData && state.lastValidData.items) {
+    counts.all = state.lastValidData.items.length;
+    state.lastValidData.items.forEach(it => {
+      const reg = getRegionCode(it.addr1);
+      if (counts[reg] !== undefined) {
+        counts[reg]++;
+      }
+    });
+  }
+  state.regionCounts = counts;
+}
+
+function updateRegionCountUI() {
+  document.getElementById("cnt-region-all").textContent = state.regionCounts.all || 0;
+  Object.keys(state.regionCounts).forEach(reg => {
+    const el = document.getElementById(`cnt-region-${reg}`);
+    if (el) {
+      el.textContent = `${state.regionCounts[reg]}건`;
+    }
+  });
+}
+
+// 3. D-day 계산 및 상세 분석 함수
 function calculateDday(startDateStr, endDateStr) {
-  if (!startDateStr || startDateStr.length < 8) return { label: "미정", type: "dday-past", ddayVal: 9999 };
+  if (!startDateStr || startDateStr.length < 8) {
+    return { label: "미정", type: "dday-past", ddayVal: 9999, statusDesc: "일정 미정" };
+  }
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -80,13 +173,35 @@ function calculateDday(startDateStr, endDateStr) {
   const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
   if (today > eDate) {
-    return { label: "종료됨", type: "dday-past", ddayVal: 10000 + diffDays };
+    const passedDays = Math.floor((today.getTime() - eDate.getTime()) / (1000 * 60 * 60 * 24));
+    return {
+      label: "종료됨",
+      type: "dday-past",
+      ddayVal: 10000 + passedDays,
+      statusDesc: `축제가 성황리에 종료되었습니다 (${passedDays}일 전 종료)`
+    };
   } else if (diffDays <= 0) {
-    return { label: "진행중", type: "dday-now", ddayVal: 0 };
-  } else if (diffDays === 0) {
-    return { label: "D-Day", type: "dday-now", ddayVal: 0 };
+    const remainDays = Math.ceil((eDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    return {
+      label: "진행중",
+      type: "dday-now",
+      ddayVal: 0,
+      statusDesc: `🎉 지금 성황리에 열리는 중입니다! (종료까지 ${remainDays}일 남음)`
+    };
+  } else if (diffDays === 1) {
+    return {
+      label: "D-1 (내일 개막)",
+      type: "dday-now",
+      ddayVal: 1,
+      statusDesc: "내일 바로 축제가 시작됩니다! 서둘러 준비하세요."
+    };
   } else {
-    return { label: `D-${diffDays}`, type: "dday-future", ddayVal: diffDays };
+    return {
+      label: `D-${diffDays}`,
+      type: "dday-future",
+      ddayVal: diffDays,
+      statusDesc: `개막까지 ${diffDays}일 남았습니다. 여행 일정을 계획해 보세요!`
+    };
   }
 }
 
@@ -105,7 +220,7 @@ function formatDateTime(isoStr) {
   }
 }
 
-// 3. 상태 영역 렌더링 (지시사항 5-1 & 4-③)
+// 4. 상태 영역 렌더링
 function renderStatus(mode = "SUCCESS", errorInfo = null) {
   const dot = document.getElementById("status-dot");
   const title = document.getElementById("status-title");
@@ -117,11 +232,15 @@ function renderStatus(mode = "SUCCESS", errorInfo = null) {
   const recentResult = document.getElementById("recent-result");
   const lastSuccessTime = document.getElementById("last-success-time");
   const currentCount = document.getElementById("current-count");
+  const selectedRegionName = document.getElementById("selected-region-name");
 
   if (state.lastValidData) {
     lastSuccessTime.textContent = formatDateTime(state.lastValidData.collectedAt);
     currentCount.textContent = `${state.lastValidData.itemCount || (state.lastValidData.items || []).length}건`;
   }
+
+  const regInfo = REGION_DEFINITIONS[state.selectedRegion] || { name: "전체" };
+  selectedRegionName.textContent = regInfo.name;
 
   if (mode === "SUCCESS") {
     dot.className = "status-dot success";
@@ -133,7 +252,6 @@ function renderStatus(mode = "SUCCESS", errorInfo = null) {
     recentResult.textContent = "성공 (200 OK)";
     recentResult.className = "val text-success";
   } else {
-    // 오류 상황 발생 시: 기존 정상 데이터는 보존된 채 배너 알림 표시
     dot.className = "status-dot error";
     title.textContent = `데이터 수집 상태: 오류 감지 (${errorInfo?.type || "ERROR"})`;
     badge.className = "badge danger";
@@ -149,9 +267,12 @@ function renderStatus(mode = "SUCCESS", errorInfo = null) {
   }
 }
 
-// 4. 오늘의 축제 목록 렌더링 (지시사항 5-2 & 검색/정렬)
+// 5. 축제 목록 렌더링 (지역 필터 + 기간 필터 + 검색 + 정렬)
 function renderFestivals() {
   const container = document.getElementById("festivals-grid");
+  const titleEl = document.getElementById("festival-section-title");
+  const descEl = document.getElementById("festival-section-desc");
+
   if (!state.lastValidData || !state.lastValidData.items) {
     container.innerHTML = `<div class="empty-state">표시할 축제 데이터가 없습니다.</div>`;
     return;
@@ -159,7 +280,29 @@ function renderFestivals() {
 
   let items = [...state.lastValidData.items];
 
-  // 검색 필터
+  // 1) 지역 필터링
+  if (state.selectedRegion !== "all") {
+    items = items.filter(it => getRegionCode(it.addr1) === state.selectedRegion);
+    const regMeta = REGION_DEFINITIONS[state.selectedRegion];
+    titleEl.innerHTML = `<span style="color:var(--primary); font-weight:800;">[${regMeta.name}]</span> 추천 축제 (${items.length}건)`;
+    descEl.textContent = `${regMeta.desc} 지역의 주요 축제 목록입니다. 클릭하여 상세 일정을 확인하세요.`;
+  } else {
+    titleEl.textContent = `전국 추천 축제 목록 (${items.length}건)`;
+    descEl.textContent = `원하는 축제 카드를 클릭하면 상세 일정, 남은 D-Day, 위치 정보가 펼쳐집니다.`;
+  }
+
+  // 2) 기간 필터링
+  if (state.selectedPeriod !== "all") {
+    items = items.filter(it => {
+      const dday = calculateDday(it.eventStartDate, it.eventEndDate);
+      if (state.selectedPeriod === "ongoing") return dday.type === "dday-now" && dday.ddayVal === 0;
+      if (state.selectedPeriod === "imminent") return dday.ddayVal > 0 && dday.ddayVal <= 10;
+      if (state.selectedPeriod === "upcoming") return dday.ddayVal > 10 && dday.ddayVal < 10000;
+      return true;
+    });
+  }
+
+  // 3) 검색어 필터링
   if (state.searchTerm) {
     const term = state.searchTerm.toLowerCase();
     items = items.filter(it =>
@@ -168,48 +311,167 @@ function renderFestivals() {
     );
   }
 
-  // 정렬
+  // 4) 정렬
   items.sort((a, b) => {
     const ddayA = calculateDday(a.eventStartDate, a.eventEndDate).ddayVal;
     const ddayB = calculateDday(b.eventStartDate, b.eventEndDate).ddayVal;
 
     if (state.sortBy === "dday-asc") return ddayA - ddayB;
     if (state.sortBy === "dday-desc") return ddayB - ddayA;
-    if (state.sortBy === "title-asc") return a.title.localeCompare(b.title);
+    if (state.title === "title-asc") return a.title.localeCompare(b.title);
     if (state.sortBy === "modified-desc") return (b.modifiedtime || "").localeCompare(a.modifiedtime || "");
     return 0;
   });
 
   if (items.length === 0) {
-    container.innerHTML = `<div class="empty-state">검색 조건에 맞는 축제가 없습니다.</div>`;
+    container.innerHTML = `
+      <div class="empty-state" style="grid-column: 1 / -1;">
+        <i class="fa-solid fa-calendar-xmark" style="font-size:32px; color:var(--gray-500); margin-bottom:10px; display:block;"></i>
+        해당 지역 및 조건에 맞는 축제가 없습니다.<br>
+        <button class="btn btn-outline btn-sm" style="margin-top:12px;" onclick="selectRegion('all')">전체 지역 보기</button>
+      </div>
+    `;
     return;
   }
 
-  container.innerHTML = items.map(item => {
+  container.innerHTML = items.map((item, idx) => {
     const dday = calculateDday(item.eventStartDate, item.eventEndDate);
+    const regCode = getRegionCode(item.addr1);
+    const regName = REGION_DEFINITIONS[regCode]?.name || "기타";
     const imgUrl = item.firstimage || "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=500&auto=format&fit=crop&q=60";
     const dateRange = `${formatDate(item.eventStartDate)} ~ ${formatDate(item.eventEndDate)}`;
 
     return `
-      <div class="festival-card-item">
+      <div class="festival-card-item" data-id="${item.contentId}">
         <div class="card-img-wrap">
           <img src="${imgUrl}" alt="${item.title}" class="card-img" onerror="this.src='https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=500&auto=format&fit=crop&q=60'">
           <span class="dday-badge ${dday.type}">${dday.label}</span>
+          <span class="region-tag-overlay"><i class="fa-solid fa-location-dot"></i> ${regName}</span>
         </div>
         <div class="card-body">
           <h4>${item.title}</h4>
           <div class="card-details">
             <span><i class="fa-regular fa-calendar"></i> ${dateRange}</span>
-            <span><i class="fa-solid fa-location-dot"></i> ${item.addr1 || "장소 미정"}</span>
-            ${item.tel ? `<span><i class="fa-solid fa-phone"></i> ${item.tel}</span>` : ""}
+            <span><i class="fa-solid fa-map-pin"></i> ${item.addr1 || "장소 미정"}</span>
+          </div>
+          <div class="card-click-hint">
+            <span>상세정보 & D-Day 확인</span> <i class="fa-solid fa-arrow-right"></i>
           </div>
         </div>
       </div>
     `;
   }).join("");
+
+  // 카드 클릭 시 모달 오픈 이벤트 바인딩
+  document.querySelectorAll(".festival-card-item").forEach(card => {
+    card.addEventListener("click", () => {
+      const id = card.getAttribute("data-id");
+      const found = state.lastValidData.items.find(it => String(it.contentId) === id);
+      if (found) {
+        openFestivalModal(found);
+      }
+    });
+  });
 }
 
-// 5. 어제와 오늘 데이터 비교 분석 (지시사항 4-② & 5-3)
+// 6. 지역 선택 핸들러
+function selectRegion(regionCode) {
+  state.selectedRegion = regionCode;
+
+  // 1) 버튼 하이라이트
+  document.querySelectorAll(".btn-region").forEach(btn => {
+    if (btn.getAttribute("data-region") === regionCode) {
+      btn.classList.add("active");
+    } else {
+      btn.classList.remove("active");
+    }
+  });
+
+  const btnAll = document.getElementById("btn-region-all");
+  if (regionCode === "all") {
+    btnAll.classList.add("active");
+  } else {
+    btnAll.classList.remove("active");
+  }
+
+  // 2) SVG 지도 하이라이트
+  document.querySelectorAll(".map-region-group").forEach(group => {
+    if (group.getAttribute("data-region") === regionCode) {
+      group.classList.add("active");
+    } else {
+      group.classList.remove("active");
+    }
+  });
+
+  // 상태창 선택 지역 표기 업데이트
+  renderStatus("SUCCESS");
+
+  // 축제 목록 재렌더링
+  renderFestivals();
+
+  // 축제 목록 섹션으로 부드러운 스크롤 이동
+  const festivalSection = document.getElementById("festival-list-section");
+  if (festivalSection) {
+    festivalSection.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+}
+
+// 7. 축제 상세 모달 팝업 열기
+function openFestivalModal(item) {
+  const modal = document.getElementById("festival-modal");
+  const dday = calculateDday(item.eventStartDate, item.eventEndDate);
+  const regCode = getRegionCode(item.addr1);
+  const regName = REGION_DEFINITIONS[regCode]?.name || "기타 지역";
+
+  document.getElementById("modal-img").src = item.firstimage || "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=800&auto=format&fit=crop&q=80";
+  document.getElementById("modal-title").textContent = item.title;
+  document.getElementById("modal-dday-badge").textContent = dday.label;
+  document.getElementById("modal-dday-badge").className = `modal-dday-badge ${dday.type}`;
+
+  document.getElementById("modal-region-tag").textContent = regName;
+  document.getElementById("modal-modified").textContent = `최종 수정: ${item.modifiedtime ? formatDateTime(item.modifiedtime) : "-"}`;
+
+  // D-Day 카운트다운 상세 설명
+  document.getElementById("modal-countdown-title").textContent = `[축제 일정 현황] ${dday.label}`;
+  document.getElementById("modal-countdown-desc").textContent = dday.statusDesc;
+
+  document.getElementById("modal-period").textContent = `${formatDate(item.eventStartDate)} ~ ${formatDate(item.eventEndDate)}`;
+  document.getElementById("modal-addr").textContent = item.addr1 || "상세 주소 미제공";
+
+  const telRow = document.getElementById("modal-tel-row");
+  if (item.tel) {
+    telRow.style.display = "flex";
+    document.getElementById("modal-tel").innerHTML = `<a href="tel:${item.tel}" style="color:var(--primary); text-decoration:none;">${item.tel}</a>`;
+  } else {
+    telRow.style.display = "none";
+  }
+
+  document.getElementById("modal-id").textContent = item.contentId;
+
+  // 카카오맵 길찾기 링크
+  const mapSearchTarget = item.addr1 || item.title;
+  document.getElementById("modal-map-link").href = `https://map.kakao.com/link/search/${encodeURIComponent(mapSearchTarget)}`;
+
+  // 정보 복사 버튼 핸들러
+  const copyBtn = document.getElementById("modal-copy-btn");
+  copyBtn.onclick = () => {
+    const copyText = `[${item.title}]\n- 일정: ${formatDate(item.eventStartDate)} ~ ${formatDate(item.eventEndDate)} (${dday.label})\n- 장소: ${item.addr1 || "미정"}\n- 문의: ${item.tel || "없음"}`;
+    navigator.clipboard.writeText(copyText).then(() => {
+      copyBtn.innerHTML = `<i class="fa-solid fa-check"></i> 복사 완료!`;
+      setTimeout(() => {
+        copyBtn.innerHTML = `<i class="fa-solid fa-share-nodes"></i> 축제 정보 복사`;
+      }, 2000);
+    });
+  };
+
+  modal.classList.remove("hidden");
+}
+
+function closeFestivalModal() {
+  document.getElementById("festival-modal").classList.add("hidden");
+}
+
+// 8. 어제와 오늘 데이터 비교 분석 (지시사항 4-② & 5-3)
 function analyzeAndRenderDiff() {
   const diffList = document.getElementById("diff-list");
   const newCntEl = document.getElementById("diff-new-cnt");
@@ -222,13 +484,11 @@ function analyzeAndRenderDiff() {
     return;
   }
 
-  // history에서 가장 최근 2개 날짜 선정
   const sortedHist = [...state.history].sort((a, b) => b.date.localeCompare(a.date));
   const todayEntry = sortedHist[0];
   const yesterdayEntry = sortedHist.length > 1 ? sortedHist[1] : null;
 
   if (!yesterdayEntry) {
-    // 1일차인 경우: 기준일 안내
     diffList.innerHTML = `
       <div class="empty-state">
         <i class="fa-solid fa-circle-info" style="font-size:24px; color:#3b82f6; margin-bottom:8px; display:block;"></i>
@@ -250,21 +510,18 @@ function analyzeAndRenderDiff() {
     ddayChangedItems: []
   };
 
-  // 1) 오늘 데이터 기준 신규, 수정, D-day 변화 탐색
   for (const [id, curr] of currMap.entries()) {
     if (!prevMap.has(id)) {
       diffResults.newItems.push({
         type: "new",
         title: curr.title,
-        desc: `새롭게 등록된 축제 (시작일: ${formatDate(curr.eventStartDate)})`,
-        date: curr.eventStartDate
+        desc: `새롭게 등록된 축제 (시작일: ${formatDate(curr.eventStartDate)})`
       });
     } else {
       const prev = prevMap.get(id);
       let isDataModified = false;
       const changes = [];
 
-      // 실제 관광정보 수정 여부 확인 (지시사항: modifiedtime 등 실제 정보 변경)
       if (prev.modifiedtime !== curr.modifiedtime) {
         isDataModified = true;
         changes.push(`수정 시각 변경 (${prev.modifiedtime} ➜ ${curr.modifiedtime})`);
@@ -282,44 +539,38 @@ function analyzeAndRenderDiff() {
         diffResults.editedItems.push({
           type: "edit",
           title: curr.title,
-          desc: changes.join(", "),
-          date: curr.eventStartDate
+          desc: changes.join(", ")
         });
       }
 
-      // D-Day 변화는 날짜 경과에 의한 계산상의 값이므로 별도로 구분! (지시사항 명시)
+      // D-day 변화는 단순 날짜 경과이므로 실제 정보 수정과 명확히 구분
       const prevDday = calculateDday(prev.eventStartDate, prev.eventEndDate).label;
       const currDday = calculateDday(curr.eventStartDate, curr.eventEndDate).label;
       if (prevDday !== currDday) {
         diffResults.ddayChangedItems.push({
           type: "dday",
           title: curr.title,
-          desc: `D-Day 경과: ${prevDday} ➜ ${currDday} (단순 일수 경과)`,
-          date: curr.eventStartDate
+          desc: `D-Day 경과: ${prevDday} ➜ ${currDday} (단순 일수 경과)`
         });
       }
     }
   }
 
-  // 2) 어제 데이터 기준 종료/사라진 축제 탐색
   for (const [id, prev] of prevMap.entries()) {
     if (!currMap.has(id)) {
       diffResults.endedItems.push({
         type: "end",
         title: prev.title,
-        desc: `종료되었거나 검색 결과에서 제외된 축제`,
-        date: prev.eventEndDate
+        desc: `종료되었거나 검색 결과에서 제외된 축제`
       });
     }
   }
 
-  // 카운트 반영
   newCntEl.textContent = diffResults.newItems.length;
   editCntEl.textContent = diffResults.editedItems.length;
   delCntEl.textContent = diffResults.endedItems.length;
   ddayCntEl.textContent = diffResults.ddayChangedItems.length;
 
-  // 렌더링
   let allDiffs = [
     ...diffResults.newItems,
     ...diffResults.editedItems,
@@ -327,8 +578,8 @@ function analyzeAndRenderDiff() {
     ...diffResults.ddayChangedItems
   ];
 
-  if (state.currentFilter !== "all") {
-    allDiffs = allDiffs.filter(d => d.type === state.currentFilter);
+  if (state.currentDiffFilter !== "all") {
+    allDiffs = allDiffs.filter(d => d.type === state.currentDiffFilter);
   }
 
   if (allDiffs.length === 0) {
@@ -354,7 +605,7 @@ function analyzeAndRenderDiff() {
   `).join("");
 }
 
-// 6. 최근 수집 이력 렌더링 (지시사항 5-4)
+// 9. 최근 수집 이력 렌더링
 function renderHistory() {
   const tbody = document.getElementById("history-tbody");
   if (!state.history || state.history.length === 0) {
@@ -382,13 +633,12 @@ function renderHistory() {
   }).join("");
 }
 
-// 7. 오류 5종 모의 테스트 실행 (지시사항 4-④ & 5-5)
+// 10. 오류 5종 모의 테스트 실행 (지시사항 4-④ & 5-5)
 function runErrorTest(type) {
   const logBox = document.getElementById("test-log");
   const integrityBadge = document.getElementById("data-integrity-badge");
   const now = new Date().toLocaleTimeString("ko-KR");
 
-  state.isSimulatingError = true;
   integrityBadge.textContent = "Fail-Safe 가동: 마지막 정상 데이터 보존 완료";
   integrityBadge.className = "badge success";
 
@@ -446,36 +696,69 @@ function runErrorTest(type) {
   }
 
   renderStatus("ERROR", testInfo);
-  // 축제 목록이 지워지지 않고 유지되는지 확인
+  // 기존 축제 목록이 지워지지 않고 보존되는지 확인
   renderFestivals();
 }
 
-// 8. 이벤트 리스너 세팅
+// 11. 이벤트 리스너 등록
 function setupEventListeners() {
-  // 오류 테스트 버튼들
-  document.querySelectorAll(".btn-test").forEach(btn => {
+  // SVG 지도 클릭 및 호버
+  const hoverTag = document.getElementById("map-hover-info");
+  document.querySelectorAll(".map-region-group").forEach(group => {
+    const regCode = group.getAttribute("data-region");
+    const regMeta = REGION_DEFINITIONS[regCode];
+
+    group.addEventListener("mouseenter", () => {
+      const cnt = state.regionCounts[regCode] || 0;
+      hoverTag.textContent = `${regMeta.name} (${cnt}건)`;
+    });
+
+    group.addEventListener("mouseleave", () => {
+      const currentMeta = REGION_DEFINITIONS[state.selectedRegion] || { name: "전국 전체" };
+      hoverTag.textContent = `선택: ${currentMeta.name}`;
+    });
+
+    group.addEventListener("click", () => {
+      selectRegion(regCode);
+    });
+  });
+
+  // 지역 퀵 버튼들
+  document.querySelectorAll(".btn-region").forEach(btn => {
     btn.addEventListener("click", () => {
-      const testType = btn.getAttribute("data-test");
-      runErrorTest(testType);
+      const reg = btn.getAttribute("data-region");
+      selectRegion(reg);
     });
   });
 
-  // 정상 복구 버튼
-  document.getElementById("btn-reset-normal").addEventListener("click", () => {
-    state.isSimulatingError = false;
-    document.getElementById("test-log").textContent = "정상 상태로 복원되었습니다. 모든 API 연동 상태가 정상입니다.";
-    renderStatus("SUCCESS");
-    renderFestivals();
+  // 전국 전체 보기 버튼
+  document.getElementById("btn-region-all").addEventListener("click", () => {
+    selectRegion("all");
   });
 
-  // Diff 탭 전환
-  document.querySelectorAll(".diff-tab").forEach(tab => {
-    tab.addEventListener("click", () => {
-      document.querySelectorAll(".diff-tab").forEach(t => t.classList.remove("active"));
-      tab.classList.add("active");
-      state.currentFilter = tab.getAttribute("data-tab");
-      analyzeAndRenderDiff();
+  // 기간 필터 칩 (전체, 진행중, 10일 이내, 예정)
+  document.querySelectorAll(".filter-chip").forEach(chip => {
+    chip.addEventListener("click", () => {
+      document.querySelectorAll(".filter-chip").forEach(c => c.classList.remove("active"));
+      chip.classList.add("active");
+      state.selectedPeriod = chip.getAttribute("data-filter");
+      renderFestivals();
     });
+  });
+
+  // 모달 닫기
+  document.getElementById("modal-close").addEventListener("click", closeFestivalModal);
+  document.getElementById("festival-modal").addEventListener("click", (e) => {
+    if (e.target.id === "festival-modal") {
+      closeFestivalModal();
+    }
+  });
+
+  // ESC 키로 모달 닫기
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      closeFestivalModal();
+    }
   });
 
   // 검색
@@ -491,7 +774,32 @@ function setupEventListeners() {
     state.sortBy = e.target.value;
     renderFestivals();
   });
+
+  // Diff 탭 전환
+  document.querySelectorAll(".diff-tab").forEach(tab => {
+    tab.addEventListener("click", () => {
+      document.querySelectorAll(".diff-tab").forEach(t => t.classList.remove("active"));
+      tab.classList.add("active");
+      state.currentDiffFilter = tab.getAttribute("data-tab");
+      analyzeAndRenderDiff();
+    });
+  });
+
+  // 오류 모의 테스트 버튼들
+  document.querySelectorAll(".btn-test").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const testType = btn.getAttribute("data-test");
+      runErrorTest(testType);
+    });
+  });
+
+  // 정상 복구 버튼
+  document.getElementById("btn-reset-normal").addEventListener("click", () => {
+    document.getElementById("test-log").textContent = "정상 상태로 복원되었습니다. 모든 API 연동 상태가 정상입니다.";
+    renderStatus("SUCCESS");
+    renderFestivals();
+  });
 }
 
-// 시작
+// DOM 준비 완료 시 실행
 document.addEventListener("DOMContentLoaded", initApp);

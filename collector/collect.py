@@ -60,7 +60,7 @@ def log_event(event_type, message, details=None):
         json.dump(events, f, ensure_ascii=False, indent=2)
 
 
-def fetch_festival_data(api_key, event_start_date=None, num_of_rows=50):
+def fetch_festival_data(api_key, event_start_date=None, num_of_rows=100):
     """
     한국관광공사 searchFestival2 API 호출
     """
