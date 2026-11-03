@@ -1,10 +1,13 @@
-# Operating System Files
-Thumbs.db
-ehthumbs.db
-Desktop.ini
-$RECYCLE.BIN/
-.DS_Store
+# Environment variables
+.env
 
-# Temporary files
-*.tmp
-*.log
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+
+# OS files
+.DS_Store
+Thumbs.db
