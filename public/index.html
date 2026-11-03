@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>오늘의 진짜 관광정보판 — 지역별 축제 지도 & Fail-Safe 대시보드</title>
+  <title>오늘의 진짜 관광정보판 — 일러스트 지역 지도 & Fail-Safe 축제 대시보드</title>
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
@@ -65,15 +65,15 @@
       </div>
     </section>
 
-    <!-- ★ 신규 추가: 원하는 지역의 축제를 고를 수 있는 대한민국 지도 & 지역 선택 영역 -->
+    <!-- ★ 신규 일러스트 지도 선택 영역 (요청 디자인 반영) -->
     <section class="section map-selection-section" id="region-map-section">
-      <div class="card map-card">
+      <div class="card illust-map-card">
         <div class="section-title-wrap">
           <div class="title-with-icon">
             <i class="fa-solid fa-compass icon-primary"></i>
             <div>
-              <h3>대한민국 지역별 축제 지도</h3>
-              <p class="section-desc">지도를 클릭하거나 원하는 지역 버튼을 선택하여 해당 지역만의 축제를 모아보세요.</p>
+              <h3>대한민국 일러스트 여행 지도</h3>
+              <p class="section-desc">지도의 권역 핀을 누르거나 우측 지역 버튼을 선택하여 축제를 확인하세요.</p>
             </div>
           </div>
           <button class="btn btn-sm btn-outline active" id="btn-region-all" data-region="all">
@@ -81,73 +81,111 @@
           </button>
         </div>
 
-        <div class="map-interactive-container">
-          <!-- 인터랙티브 SVG 지도 영역 -->
-          <div class="svg-map-wrapper">
-            <div class="map-title-bar">
-              <span><i class="fa-solid fa-arrow-pointer"></i> 지도를 클릭하면 해당 지역 축제가 표시됩니다</span>
-              <span id="map-hover-info" class="map-hover-tag">지역을 선택하세요</span>
+        <div class="illust-map-layout">
+          <!-- 일러스트 지도 인터랙티브 뷰 -->
+          <div class="illust-map-stage">
+            <div class="stage-sky-decor">
+              <span class="cloud cloud-1"><i class="fa-solid fa-cloud"></i></span>
+              <span class="cloud cloud-2"><i class="fa-solid fa-cloud"></i></span>
             </div>
-            
-            <svg id="korea-svg-map" viewBox="0 0 520 620" class="korea-map-svg">
-              <!-- 서울/경기/인천 -->
-              <g class="map-region-group" data-region="seoul" id="map-reg-seoul">
-                <circle cx="165" cy="145" r="24" class="region-node node-seoul" />
-                <text x="165" y="149" class="region-text">서울</text>
-              </g>
-              <g class="map-region-group" data-region="gyeonggi" id="map-reg-gyeonggi">
-                <path d="M130,105 L215,95 L225,185 L140,200 L115,160 Z" class="region-polygon poly-gyeonggi" />
-                <text x="175" y="190" class="region-text">경기/인천</text>
-              </g>
 
-              <!-- 강원도 -->
-              <g class="map-region-group" data-region="gangwon" id="map-reg-gangwon">
-                <path d="M225,85 L350,110 L330,220 L230,185 Z" class="region-polygon poly-gangwon" />
-                <text x="280" y="150" class="region-text">강원도</text>
-              </g>
+            <div class="illust-image-container">
+              <img src="assets/korea-map-illust.png" alt="South Korea Illustration Map" class="illust-base-img" id="illust-map-img">
 
-              <!-- 충청도 (충북 / 충남 / 대전 / 세종) -->
-              <g class="map-region-group" data-region="chungcheong" id="map-reg-chungcheong">
-                <path d="M125,205 L235,190 L275,260 L195,305 L115,280 Z" class="region-polygon poly-chungcheong" />
-                <text x="180" y="250" class="region-text highlight-region">충청도 (충남·충북·대전·세종)</text>
-              </g>
+              <!-- 인터랙티브 핀 핫스팟 레이어 (각 권역별 좌표 배치) -->
+              
+              <!-- 1. 서울 / 수도권 -->
+              <div class="map-hotspot-pin pin-seoul" data-region="seoul" title="서울특별시">
+                <div class="pin-marker"><i class="fa-solid fa-tower-observation"></i></div>
+                <div class="pin-badge">
+                  <strong>서울</strong>
+                  <span class="pin-cnt" id="pin-cnt-seoul">0</span>
+                </div>
+              </div>
 
-              <!-- 경상북도 & 대구 -->
-              <g class="map-region-group" data-region="gyeongbuk" id="map-reg-gyeongbuk">
-                <path d="M280,215 L385,225 L395,345 L285,340 L270,265 Z" class="region-polygon poly-gyeongbuk" />
-                <text x="330" y="280" class="region-text">경북/대구</text>
-              </g>
+              <!-- 2. 경기 / 인천 -->
+              <div class="map-hotspot-pin pin-gyeonggi" data-region="gyeonggi" title="경기 / 인천">
+                <div class="pin-marker"><i class="fa-solid fa-city"></i></div>
+                <div class="pin-badge">
+                  <strong>경기/인천</strong>
+                  <span class="pin-cnt" id="pin-cnt-gyeonggi">0</span>
+                </div>
+              </div>
 
-              <!-- 전라북도 -->
-              <g class="map-region-group" data-region="jeonbuk" id="map-reg-jeonbuk">
-                <path d="M115,290 L205,310 L220,380 L110,370 Z" class="region-polygon poly-jeonbuk" />
-                <text x="160" y="345" class="region-text highlight-region">전라북도</text>
-              </g>
+              <!-- 3. 강원도 -->
+              <div class="map-hotspot-pin pin-gangwon" data-region="gangwon" title="강원도">
+                <div class="pin-marker"><i class="fa-solid fa-mountain-sun"></i></div>
+                <div class="pin-badge">
+                  <strong>강원도</strong>
+                  <span class="pin-cnt" id="pin-cnt-gangwon">0</span>
+                </div>
+              </div>
 
-              <!-- 전라남도 & 광주 -->
-              <g class="map-region-group" data-region="jeonnam" id="map-reg-jeonnam">
-                <path d="M100,380 L225,385 L215,485 L90,470 Z" class="region-polygon poly-jeonnam" />
-                <text x="155" y="435" class="region-text highlight-region">전라남도 (광주)</text>
-              </g>
+              <!-- 4. 충청도 (충북/충남/대전/세종) - 강조 -->
+              <div class="map-hotspot-pin pin-chungcheong highlight-spot" data-region="chungcheong" title="충청도 (충남·충북·대전·세종)">
+                <div class="pin-marker marker-pulse"><i class="fa-solid fa-landmark"></i></div>
+                <div class="pin-badge badge-glow">
+                  <strong>충청도</strong>
+                  <span class="pin-cnt" id="pin-cnt-chungcheong">0</span>
+                </div>
+              </div>
 
-              <!-- 경상남도 & 부산/울산 -->
-              <g class="map-region-group" data-region="gyeongnam" id="map-reg-gyeongnam">
-                <path d="M225,355 L380,350 L395,445 L270,480 L220,395 Z" class="region-polygon poly-gyeongnam" />
-                <text x="295" y="420" class="region-text">경남/부산/울산</text>
-              </g>
+              <!-- 5. 전라북도 - 강조 -->
+              <div class="map-hotspot-pin pin-jeonbuk highlight-spot" data-region="jeonbuk" title="전라북도 (전주·군산·익산 등)">
+                <div class="pin-marker marker-pulse"><i class="fa-solid fa-tree"></i></div>
+                <div class="pin-badge badge-glow">
+                  <strong>전라북도</strong>
+                  <span class="pin-cnt" id="pin-cnt-jeonbuk">0</span>
+                </div>
+              </div>
 
-              <!-- 제주특별자치도 -->
-              <g class="map-region-group" data-region="jeju" id="map-reg-jeju">
-                <ellipse cx="140" cy="555" rx="50" ry="26" class="region-polygon poly-jeju" />
-                <text x="140" y="560" class="region-text">제주도</text>
-              </g>
-            </svg>
+              <!-- 6. 전라남도 & 광주 - 강조 -->
+              <div class="map-hotspot-pin pin-jeonnam highlight-spot" data-region="jeonnam" title="전라남도 (광주·여수·순천 등)">
+                <div class="pin-marker marker-pulse"><i class="fa-solid fa-sailboat"></i></div>
+                <div class="pin-badge badge-glow">
+                  <strong>전라남도</strong>
+                  <span class="pin-cnt" id="pin-cnt-jeonnam">0</span>
+                </div>
+              </div>
+
+              <!-- 7. 경북 / 대구 -->
+              <div class="map-hotspot-pin pin-gyeongbuk" data-region="gyeongbuk" title="경상북도 / 대구">
+                <div class="pin-marker"><i class="fa-solid fa-building"></i></div>
+                <div class="pin-badge">
+                  <strong>경북/대구</strong>
+                  <span class="pin-cnt" id="pin-cnt-gyeongbuk">0</span>
+                </div>
+              </div>
+
+              <!-- 8. 경남 / 부산 / 울산 -->
+              <div class="map-hotspot-pin pin-gyeongnam" data-region="gyeongnam" title="경남 / 부산 / 울산">
+                <div class="pin-marker"><i class="fa-solid fa-ship"></i></div>
+                <div class="pin-badge">
+                  <strong>경남/부산/울산</strong>
+                  <span class="pin-cnt" id="pin-cnt-gyeongnam">0</span>
+                </div>
+              </div>
+
+              <!-- 9. 제주특별자치도 -->
+              <div class="map-hotspot-pin pin-jeju" data-region="jeju" title="제주특별자치도">
+                <div class="pin-marker"><i class="fa-solid fa-volcano"></i></div>
+                <div class="pin-badge">
+                  <strong>제주도</strong>
+                  <span class="pin-cnt" id="pin-cnt-jeju">0</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="illust-map-footer-guide">
+              <i class="fa-solid fa-lightbulb"></i> 지도의 핀을 클릭하면 해당 권역 축제로 바로 이동합니다!
+            </div>
           </div>
 
-          <!-- 지역 선택 퀵 버튼 리스트 -->
+          <!-- 지역 퀵 선택 패널 -->
           <div class="region-buttons-panel">
             <h4><i class="fa-solid fa-signs-post"></i> 권역 바로가기</h4>
             <div class="region-btn-grid">
+              <!-- 충청도 -->
               <button class="btn-region" data-region="chungcheong">
                 <div class="region-btn-header">
                   <span class="reg-name"><i class="fa-solid fa-location-dot reg-icon-chungcheong"></i> 충청도</span>
@@ -156,22 +194,25 @@
                 <small class="reg-sub">충남 · 충북 · 대전 · 세종</small>
               </button>
 
+              <!-- 전라북도 -->
               <button class="btn-region" data-region="jeonbuk">
                 <div class="region-btn-header">
                   <span class="reg-name"><i class="fa-solid fa-location-dot reg-icon-jeonbuk"></i> 전라북도</span>
                   <span class="reg-count" id="cnt-region-jeonbuk">0건</span>
                 </div>
-                <small class="reg-sub">전주 · 군산 · 익산 · 남원 등</small>
+                <small class="reg-sub">전주 · 군산 · 익산 · 남원</small>
               </button>
 
+              <!-- 전라남도 -->
               <button class="btn-region" data-region="jeonnam">
                 <div class="region-btn-header">
                   <span class="reg-name"><i class="fa-solid fa-location-dot reg-icon-jeonnam"></i> 전라남도</span>
                   <span class="reg-count" id="cnt-region-jeonnam">0건</span>
                 </div>
-                <small class="reg-sub">광주 · 여수 · 순천 · 목포 등</small>
+                <small class="reg-sub">광주 · 여수 · 순천 · 목포</small>
               </button>
 
+              <!-- 서울 -->
               <button class="btn-region" data-region="seoul">
                 <div class="region-btn-header">
                   <span class="reg-name"><i class="fa-solid fa-location-dot"></i> 서울특별시</span>
@@ -180,6 +221,7 @@
                 <small class="reg-sub">수도권 도심 축제</small>
               </button>
 
+              <!-- 경기/인천 -->
               <button class="btn-region" data-region="gyeonggi">
                 <div class="region-btn-header">
                   <span class="reg-name"><i class="fa-solid fa-location-dot"></i> 경기 / 인천</span>
@@ -188,30 +230,34 @@
                 <small class="reg-sub">경기 남부/북부 & 인천</small>
               </button>
 
+              <!-- 강원도 -->
               <button class="btn-region" data-region="gangwon">
                 <div class="region-btn-header">
                   <span class="reg-name"><i class="fa-solid fa-location-dot"></i> 강원도</span>
                   <span class="reg-count" id="cnt-region-gangwon">0건</span>
                 </div>
-                <small class="reg-sub">춘천 · 강릉 · 속초 · 원주 등</small>
+                <small class="reg-sub">춘천 · 강릉 · 속초 · 원주</small>
               </button>
 
+              <!-- 경북/대구 -->
               <button class="btn-region" data-region="gyeongbuk">
                 <div class="region-btn-header">
                   <span class="reg-name"><i class="fa-solid fa-location-dot"></i> 경북 / 대구</span>
                   <span class="reg-count" id="cnt-region-gyeongbuk">0건</span>
                 </div>
-                <small class="reg-sub">경주 · 안동 · 포항 · 대구 등</small>
+                <small class="reg-sub">경주 · 안동 · 포항 · 대구</small>
               </button>
 
+              <!-- 경남/부산/울산 -->
               <button class="btn-region" data-region="gyeongnam">
                 <div class="region-btn-header">
                   <span class="reg-name"><i class="fa-solid fa-location-dot"></i> 경남 / 부산 / 울산</span>
                   <span class="reg-count" id="cnt-region-gyeongnam">0건</span>
                 </div>
-                <small class="reg-sub">부산 · 김해 · 통영 · 울산 등</small>
+                <small class="reg-sub">부산 · 김해 · 통영 · 울산</small>
               </button>
 
+              <!-- 제주도 -->
               <button class="btn-region" data-region="jeju">
                 <div class="region-btn-header">
                   <span class="reg-name"><i class="fa-solid fa-location-dot"></i> 제주특별자치도</span>
@@ -405,7 +451,7 @@
     </footer>
   </div>
 
-  <!-- ★ 신규 추가: 축제 상세 정보 팝업 모달 -->
+  <!-- 축제 상세 정보 팝업 모달 -->
   <div class="modal-overlay hidden" id="festival-modal">
     <div class="modal-card">
       <button class="modal-close-btn" id="modal-close">&times;</button>

@@ -142,9 +142,15 @@ function calculateRegionCounts() {
 function updateRegionCountUI() {
   document.getElementById("cnt-region-all").textContent = state.regionCounts.all || 0;
   Object.keys(state.regionCounts).forEach(reg => {
+    // 퀵 버튼 카운트
     const el = document.getElementById(`cnt-region-${reg}`);
     if (el) {
       el.textContent = `${state.regionCounts[reg]}건`;
+    }
+    // 지도 핀 뱃지 카운트
+    const pinEl = document.getElementById(`pin-cnt-${reg}`);
+    if (pinEl) {
+      pinEl.textContent = state.regionCounts[reg] || 0;
     }
   });
 }
@@ -394,12 +400,12 @@ function selectRegion(regionCode) {
     btnAll.classList.remove("active");
   }
 
-  // 2) SVG 지도 하이라이트
-  document.querySelectorAll(".map-region-group").forEach(group => {
-    if (group.getAttribute("data-region") === regionCode) {
-      group.classList.add("active");
+  // 2) 지도 핫스팟 핀 하이라이트
+  document.querySelectorAll(".map-hotspot-pin").forEach(pin => {
+    if (pin.getAttribute("data-region") === regionCode) {
+      pin.classList.add("active");
     } else {
-      group.classList.remove("active");
+      pin.classList.remove("active");
     }
   });
 
@@ -702,23 +708,10 @@ function runErrorTest(type) {
 
 // 11. 이벤트 리스너 등록
 function setupEventListeners() {
-  // SVG 지도 클릭 및 호버
-  const hoverTag = document.getElementById("map-hover-info");
-  document.querySelectorAll(".map-region-group").forEach(group => {
-    const regCode = group.getAttribute("data-region");
-    const regMeta = REGION_DEFINITIONS[regCode];
-
-    group.addEventListener("mouseenter", () => {
-      const cnt = state.regionCounts[regCode] || 0;
-      hoverTag.textContent = `${regMeta.name} (${cnt}건)`;
-    });
-
-    group.addEventListener("mouseleave", () => {
-      const currentMeta = REGION_DEFINITIONS[state.selectedRegion] || { name: "전국 전체" };
-      hoverTag.textContent = `선택: ${currentMeta.name}`;
-    });
-
-    group.addEventListener("click", () => {
+  // 일러스트 지도 핀 클릭 이벤트
+  document.querySelectorAll(".map-hotspot-pin").forEach(pin => {
+    const regCode = pin.getAttribute("data-region");
+    pin.addEventListener("click", () => {
       selectRegion(regCode);
     });
   });
