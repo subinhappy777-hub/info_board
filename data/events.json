@@ -25,5 +25,19 @@
       "date": "2026-11-03",
       "itemCount": 100
     }
+  },
+  {
+    "timestamp": "2026-11-04T09:34:04.810632+09:00",
+    "type": "CONFIG_ERROR",
+    "message": "TOUR_API_KEY가 .env 파일에 등록되어 있지 않습니다."
+  },
+  {
+    "timestamp": "2026-11-04T09:37:02.054596+09:00",
+    "type": "COLLECT_SUCCESS",
+    "message": "정상 수집 완료: 총 100건의 축제 데이터 저장",
+    "details": {
+      "date": "2026-11-04",
+      "itemCount": 100
+    }
   }
 ]
